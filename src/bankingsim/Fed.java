@@ -1,20 +1,14 @@
 package bankingsim;
 
 
-public class Fed extends BankingSim{
+public class Fed extends BankingSim {
 		
 	public Fed(){
 		
 	}
 	
 	public void run(){
-		//calculate B, M, C, R etc.
-		
-		//backup l[], rr and cr
-		
-		//regenerate l[]
-		
-		//regenerate rr, cr
+		rr = 0.01*rng.nextInt(11);
 	}
 
 }
