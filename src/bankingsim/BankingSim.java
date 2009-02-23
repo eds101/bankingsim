@@ -6,9 +6,10 @@
 package bankingsim;
 
 
+import java.text.DecimalFormat;
 import java.util.Random;
 
-public class BankingSim{
+public class BankingSim {
 	
 	//global constants
 	protected final int numBanks;
@@ -45,14 +46,10 @@ public class BankingSim{
 	private final Bank bank;
 	private final Consumer consumer;
 	private final int numIterations;
+	private final DecimalFormat twoDecimalFormat;
 
 	public BankingSim(){
 		rng = new Random();
-		
-		fed = new Fed(this);
-		bank = new Bank(this);
-		consumer = new Consumer(this);
-		numIterations = 100;
 		
 		numBanks = 5;
 		numConsumers = 1000;
@@ -79,7 +76,11 @@ public class BankingSim{
 		moneyBase = initBase;
 		moneySupply = initBase; 
 		
-	
+		fed = new Fed(this);
+		bank = new Bank(this);
+		consumer = new Consumer(this);
+		numIterations = 100;
+		twoDecimalFormat = new DecimalFormat("#0.00");
 	
 		//Spread initial money base among consumers as currency in order to kick-off the simulation.  as though the banking system is invented at t=0.
 		double totalCur = 0;
@@ -101,7 +102,7 @@ public class BankingSim{
 	
 	private void run() {
 		System.out.println("SIMULATION CONSTANTS:");
-		System.out.println(numBanks+" Banks and "+numConsumers+" Consumers.");
+		System.out.println(numBanks+" Banks and "+numConsumers+" Consumers.  Initial rr: " + twoDecimalFormat.format(rr*100) + "%.");
 		System.out.println("Initial money base: $" + initBase + ".  Average deposits per consumer: $" + avgConsumerDeposits  + ".");
 		System.out.println("Number of iterations: " + numIterations + ".");
 		System.out.println("SIMULATION START:");
@@ -135,17 +136,18 @@ public class BankingSim{
 	private void printState(int i){
 		System.out.println("================================");
 		System.out.println("Iteration " + i + ":");
-		System.out.println("Reserve Ratio (rr -- assigned randomly by fed): " + rr);
-		System.out.println("Currency (C): $" + totalCurrency);
-		System.out.println("Deposits (D): $" + totalDeposits);
-		System.out.println("Required Reserves (R): $" + totalRequiredReserves);
-		System.out.println("Currency-Deposit Ratio (cr=C/D) $" + cr);
-		System.out.println("Money Base (B=C+R): $" + moneyBase);
-		System.out.println("Money Supply (M=C+D): $" + moneySupply);
+		System.out.println("Reserve Ratio (rr -- assigned randomly by fed): " + twoDecimalFormat.format(rr*100) + "%");
+		System.out.println("Currency (C): $" + twoDecimalFormat.format(totalCurrency));
+		System.out.println("Deposits (D): $" + twoDecimalFormat.format(totalDeposits));
+		System.out.println("Required Reserves (R): $" +twoDecimalFormat.format( totalRequiredReserves));
+		System.out.println("Currency-Deposit Ratio (cr=C/D) " + twoDecimalFormat.format(cr));
+		System.out.println("Money Base (B=C+R): $" + twoDecimalFormat.format(moneyBase));
+		System.out.println("Money Supply (M=C+D): $" + twoDecimalFormat.format(moneySupply));
 	}
 	
 	private void printFinal() {
 		System.out.println();
+		
 		/*
 		System.out.println("currency[]:");
 		System.out.println("loans[][]:");
