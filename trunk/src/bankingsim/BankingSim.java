@@ -1,66 +1,65 @@
+/*
+ * Financial Technology, Assignment 1
+ * Eric Schmidt & Yunling Wang
+ */
+
 package bankingsim;
+
 
 import java.util.Random;
 
-
 public class BankingSim{
-	
-	protected final Random rng;
-	
-	//BankingSim private constants
-	private final Fed fed;
-	private final Bank bank;
-	private final Consumer consumer;
-	private final int numIterations;
 	
 	//global constants
 	protected final int numBanks;
 	protected final int numConsumers;
-	protected final int initBase;
-	protected final double avgConsumerDeposits;
-	protected final double initRR;
-	protected final double cr;
+	protected final int initBase; // initial money base
+	protected final double avgConsumerDeposits; // average deposits of each consumer
+	protected final Random rng; //global randon number generator
 	
 	//global variables
 	protected double rr;
-	//protected double CR; //believed to be constant
-	protected double currency[]; // currency held by each bank or consumer. banks precede consumers in the array.
+	protected double currency[]; // currency held by each consumer and each bank. banks precede consumers in the array. currently, banks can't hold currency; rather, they hold deposits=bankDeposits[b]+bankLoansIn[b]+fedLoans[b]; but I have left the currency array like this in case our model ever include banks having some sort of currency 
 	protected double loans[][]; // first dimension is loan-provider (banks), second is loan-recipient (banks or consumers). banks precede consumers in the dimension of recipients.
 	protected double deposits[][]; // first dimension is depositors (consumers), second is deposit holders (banks).
 	protected double fedLoans[]; // federal loans to each bank
 	protected boolean everFailed[]; // whether each bank and consumer has ever failed or not.  Banks precede consumers in the array.  Failure occurs for a bank when a consumer wants to withdraw his deposits from the bank, but the bank doesn't have enough reserves to satisfy that request.  Failure occurs for a consumer when the consumer desires to take a loan of x dollars from the banking system, but the banking system cannot satisfy him.  
 	
 	//convenience global variables
-	protected double consumerDeposits[];
-	protected double consumerLoans[];
+	protected double consumerDeposits[]; // deposits held by consumer i
+	protected double consumerLoans[]; // loans held by consumer i
 	protected double bankLoansOut[]; // loans from bank i to consumers
-	protected double bankDeposits[]; // deposits at bank i
+	protected double bankDeposits[]; // consumer deposits at bank i
 	protected double bankLoansIn[]; // loans from other banks to bank i
-	/*protected double moneyBase;
-	protected double moneySupply;
-	protected double totalCurrency;
-	protected double totalReserves;
-	protected double totalDeposits;*/
 	
+	//derivative variables are only calculated at the end of each iteration for the purpose of printing them out
+	protected double totalCurrency; // C = Summation(currency[])
+	protected double totalRequiredReserves; // R = Summation(bankLoansOut[])*rr/(1-rr)
+	protected double totalDeposits; // D = Summation(bankDeposits[]+bankLoansIn[]+fedLoans[]), over all i
+	protected double cr; // Currency-Deposit ratio = C/D = Summation(currency[])/Summation(bankDeposits[]+bankLoansIn[]+fedLoans[]), over all i
+	protected double moneyBase; // B = C+R
+	protected double moneySupply; // M = C+D
 	
-	
-	
-	BankingSim(){
+	//BankingSim private constants
+	private final Fed fed;
+	private final Bank bank;
+	private final Consumer consumer;
+	private final int numIterations;
+
+	public BankingSim(){
 		rng = new Random();
 		
-		fed = new Fed();
-		bank = new Bank();
-		consumer = new Consumer();
+		fed = new Fed(this);
+		bank = new Bank(this);
+		consumer = new Consumer(this);
 		numIterations = 100;
 		
 		numBanks = 5;
 		numConsumers = 1000;
 		initBase = 10000000;
 		avgConsumerDeposits = initBase/numConsumers*(.75+.2*(rng.nextDouble()-.5));
-		initRR = 0.01*rng.nextInt(11);
-		cr = .5+.2*(rng.nextDouble()-.5);
-		
-		rr=initRR;
+		rr= 0.01+(rng.nextDouble()-.5)*.01;
+	
 		currency = new double[numBanks+numConsumers];
 		deposits = new double [numConsumers][numBanks];
 		loans = new double[numBanks][numBanks + numConsumers];
@@ -73,15 +72,22 @@ public class BankingSim{
 		bankDeposits = new double [numBanks];
 		bankLoansIn = new double [numBanks];
 		
+		totalCurrency = initBase;
+		totalRequiredReserves = 0;
+		totalDeposits = 0; 
+		cr = 0;
+		moneyBase = initBase;
+		moneySupply = initBase; 
+		
 	
 	
 		//Spread initial money base among consumers as currency in order to kick-off the simulation.  as though the banking system is invented at t=0.
 		double totalCur = 0;
-		for(int i =numBanks;i<numBanks+numConsumers;i++) {
+		for(int i =0;i<numConsumers;i++) {
 			currency[numBanks+i]=initBase/numConsumers*Math.pow(Math.E,rng.nextGaussian());
 			totalCur+=currency[numBanks+i];
 		}
-		for(int i =numBanks;i<numBanks+numConsumers;i++) {
+		for(int i =0;i<numConsumers;i++) {
 			currency[numBanks+i] /= (totalCur/initBase);
 		}
 		
@@ -89,31 +95,82 @@ public class BankingSim{
 		
 	}
 	
-	private void printState(int i){
-		System.out.println("================================");
-		System.out.println("Iteration " + i);
-		System.out.println("Money Supply: " + "[We don't know how to count this yet]");
-		System.out.println("Money Base: " + "[We don't know how to count this yet]");
-		System.out.println("rr: " + rr);
+	public static void main (String [] args) {
+		BankingSim sim = new BankingSim();
 	}
 	
 	private void run() {
 		System.out.println("SIMULATION CONSTANTS:");
 		System.out.println(numBanks+" Banks and "+numConsumers+" Consumers.");
-		System.out.println("Initial money base: $" + initBase + ". Average deposits per consumer: $" + avgConsumerDeposits  + ".");
-		System.out.println("Initial Reserve Ratio: " + initRR + ".  Currency-Deposit Ratio: " + cr + ".");
-		System.out.println("Num iterations: " + numIterations + ".");
+		System.out.println("Initial money base: $" + initBase + ".  Average deposits per consumer: $" + avgConsumerDeposits  + ".");
+		System.out.println("Number of iterations: " + numIterations + ".");
 		System.out.println("SIMULATION START:");
 		for(int i = 0; i < numIterations; i++){
 			consumer.run();
-			bank.run();
 			fed.run();
+			bank.run();
+			calcDerivativeVars();
 			printState(i+1);
 		}
+		printFinal();
 	}
 	
-	public static void main(String args[]){
-		BankingSim sim = new BankingSim();
+	private void calcDerivativeVars() {
+		totalCurrency=0;
+		totalDeposits=0;
+		totalRequiredReserves=0;
+		for (int i=0;i<numConsumers;i++) {
+			totalCurrency += currency[numBanks+i];	
+		}
+		for(int i =0;i<numBanks;i++) {
+			totalDeposits+=bankDeposits[i]+fedLoans[i]+bankLoansIn[i];
+			totalRequiredReserves+=bankLoansOut[i];
+		}
+		totalRequiredReserves *= rr/(1-rr);
+		cr = totalCurrency/totalDeposits;
+		moneyBase = totalCurrency+totalRequiredReserves;
+		moneySupply = totalCurrency+totalDeposits;
+	}
+	
+	private void printState(int i){
+		System.out.println("================================");
+		System.out.println("Iteration " + i + ":");
+		System.out.println("Reserve Ratio (rr -- assigned randomly by fed): " + rr);
+		System.out.println("Currency (C): $" + totalCurrency);
+		System.out.println("Deposits (D): $" + totalDeposits);
+		System.out.println("Required Reserves (R): $" + totalRequiredReserves);
+		System.out.println("Currency-Deposit Ratio (cr=C/D) $" + cr);
+		System.out.println("Money Base (B=C+R): $" + moneyBase);
+		System.out.println("Money Supply (M=C+D): $" + moneySupply);
+	}
+	
+	private void printFinal() {
+		System.out.println();
+		/*
+		System.out.println("currency[]:");
+		System.out.println("loans[][]:");
+		System.out.println("deposits[][]:");
+		System.out.println("fedLoans[]:");
+		System.out.println("everFailed[]:");
+		System.out.println("consumerDeposits[]:");
+		System.out.println("consumerLoans[]:");
+		System.out.println("bankLoansOut[]:");
+		System.out.println("bankDeposits[]:");
+		System.out.println("bankLoansIn[]:");*/
+		
+		System.out.print("everFailed[]: ");
+		int numFailed = 0;
+		for(int i=0;i<numBanks;i++) {
+			int failedVal = 0;
+			if(everFailed[i]) {
+				failedVal = 1;
+			}
+			System.out.print(failedVal + " ");
+			numFailed+=failedVal;
+		}
+		System.out.println("\nNumber of banks that ever failed: " + numFailed);
+		
+		
 	}
 	
 }
