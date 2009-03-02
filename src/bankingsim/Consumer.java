@@ -9,16 +9,21 @@ public class Consumer {
 	}
 	
 	public void run() {
+		//gdpGrowthRate fluctuates
+		sim.gdpGrowthRate = (sim.rng.nextDouble()*13-3)/100;
+		
+		//grow gdp by gdpGrowthRate
+		sim.gdp=sim.gdp*(1+sim.gdpGrowthRate);
 		
 		//Calculate desired currency for each consumer
 		double desiredCurrency[] = new double[sim.numConsumers];
 		double totalCur = 0;
 		for (int c= 0;c<sim.numConsumers;c++ ) {
-			desiredCurrency[c]=sim.initBase/sim.numConsumers*Math.pow(Math.E,sim.rng.nextGaussian());
+			desiredCurrency[c]=sim.gdp/sim.numConsumers*Math.pow(Math.E,sim.rng.nextGaussian());
 			totalCur+=desiredCurrency[c];
 		}
 		for(int c=0;c<sim.numConsumers;c++) {
-			desiredCurrency[c] /= totalCur/(sim.initBase-sim.numConsumers*sim.avgConsumerDeposits);
+			desiredCurrency[c] /= totalCur/(sim.gdp-sim.numConsumers*sim.avgConsumerDeposits);
 		}
 		
 		//given desired currency, consumer either wants to withdraw/borrow or save/pay back loans
@@ -52,13 +57,13 @@ public class Consumer {
 				}
 				if(desiredCurrency[c]>sim.currency[sim.numBanks+c]) { //if still want more currency
 					for(int b=0;b<sim.numBanks;b++) {  //then try to get the rest via loans
-						if(sim.bankDeposits[b]*(1-sim.rr)>sim.bankLoansOut[b]) {
-							if (sim.bankDeposits[b]*(1-sim.rr)-sim.bankLoansOut[b] >= desiredCurrency[c]-sim.currency[sim.numBanks+c]) { 
+						if(sim.bankDeposits[b]*(1-sim.rr)+sim.currency[b]>sim.bankLoansOut[b]) {
+							if (sim.bankDeposits[b]*(1-sim.rr)+sim.currency[b]-sim.bankLoansOut[b] >= desiredCurrency[c]-sim.currency[sim.numBanks+c]) { 
 								takeOutLoan(c,b,desiredCurrency[c]-sim.currency[sim.numBanks+c]);
 								break;
 							}
 							else
-								takeOutLoan(c,b,sim.bankDeposits[b]*(1-sim.rr)-sim.bankLoansOut[b]);
+								takeOutLoan(c,b,sim.bankDeposits[b]*(1-sim.rr)+sim.currency[b]-sim.bankLoansOut[b]);
 						}
 					}
 				}
