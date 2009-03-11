@@ -17,6 +17,10 @@ public class Fed {
 			sim.rr = 1;
 		}
 		
+		sim.prevFedInterestRate = sim.fedInterestRate;
+		
+		sim.fedInterestRate = .01+sim.rng.nextDouble()*.05;
+		
 		//ensure that money supply never grows more than +50% or less than -50% by distributing or collecting currency from consumers and banks. 
 		double oldMoneySupply = sim.moneySupply;
 		double newMoneySupply = sim.totalCurrency+sim.totalDeposits;

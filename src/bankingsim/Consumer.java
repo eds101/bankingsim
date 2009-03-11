@@ -15,10 +15,13 @@ public class Consumer {
 		//grow gdp by gdpGrowthRate
 		sim.gdp=sim.gdp*(1+sim.gdpGrowthRate);
 		
+		sim.avgConsumerDeposits = sim.gdp/sim.numConsumers*(sim.fedInterestRate+sim.bidAskRate-.1+sim.rng.nextDouble()*.25); //savings rate is directly related to interest rate for consumers
+		
 		//Calculate desired currency for each consumer
 		double desiredCurrency[] = new double[sim.numConsumers];
 		double totalCur = 0;
 		for (int c= 0;c<sim.numConsumers;c++ ) {
+			sim.currency[sim.numBanks+c]+=(sim.gdp-sim.gdp/(1+sim.gdpGrowthRate))/sim.numConsumers;
 			desiredCurrency[c]=sim.gdp/sim.numConsumers*Math.pow(Math.E,sim.rng.nextGaussian());
 			totalCur+=desiredCurrency[c];
 		}
@@ -26,22 +29,24 @@ public class Consumer {
 			desiredCurrency[c] /= totalCur/(sim.gdp-sim.numConsumers*sim.avgConsumerDeposits);
 		}
 		
-		//given desired currency, consumer either wants to withdraw/borrow or save/pay back loans
-		for(int c =0;c<sim.numConsumers;c++) {
-			if(desiredCurrency[c]<sim.currency[sim.numBanks+c]) { // consumer desires less currency
-				if (sim.consumerLoans[c]>0) { // if consumer has some loans taken out
-					for (int b=0;b<sim.numBanks;b++) { // then first try to decrease currency by paying back loans
-						if (sim.loans[b][sim.numBanks+c]>=sim.currency[sim.numBanks+c]-desiredCurrency[c]) {
-							payBackLoan(c,b,sim.currency[sim.numBanks+c]-desiredCurrency[c]);
-							break;
-						} else {
-							payBackLoan(c,b,sim.loans[b][sim.numBanks+c]);
-						}
+		
+		
+		//pay back consumer loans with interest = prevFedFundsRate + prevBidAskRate
+		for(int c=0;c<sim.numConsumers;c++) {
+			for (int b=0;b<sim.numBanks;b++) { 
+					if (sim.loans[b][sim.numBanks+c] <= sim.currency[sim.numBanks+c])
+						payBackLoan(c,b,sim.loans[b][sim.numBanks+c]);
+					else {
+						sim.totalAmountDefaulted+=sim.loans[b][sim.numBanks+c]-sim.currency[sim.numBanks+c];
+						payBackLoan(c,b,sim.currency[sim.numBanks+c]);
 					}
-				}
-				if(desiredCurrency[c]<sim.currency[sim.numBanks+c]) //if still desire less currency
-					depositInBank(c,sim.rng.nextInt(sim.numBanks),sim.currency[sim.numBanks+c]-desiredCurrency[c]); // then deposit the difference at some random bank
 			}
+		}
+		
+		//given desired currency, consumer either wants to withdraw/borrow or save
+		for(int c =0;c<sim.numConsumers;c++) {
+			if(desiredCurrency[c]<sim.currency[sim.numBanks+c]) //if desire less currency
+				depositInBank(c,sim.rng.nextInt(sim.numBanks),sim.currency[sim.numBanks+c]-desiredCurrency[c]); // then deposit the difference at some random bank
 		}
 		for(int c =0;c<sim.numConsumers;c++) {
 			if(desiredCurrency[c]>sim.currency[sim.numBanks+c]) { // consumer desires more currency
