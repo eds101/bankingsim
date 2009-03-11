@@ -18,11 +18,15 @@ public class BankingSim {
 	protected final int numBanks;
 	protected final int numConsumers;
 	protected final int initBase; // initial money base
-	protected final double avgConsumerDeposits; // average deposits of each consumer
 	protected final Random rng; //global randon number generator
 	
 	//global variables
 	protected double rr; //reserve ratio
+	protected double fedInterestRate; //determines rate of interbank loans (fed funds rate)
+	protected double bidAskRate; //additional percentage points charged by banks to consumers in addition to the fed funds rate
+	protected double prevFedInterestRate;
+	protected double prevBidAskRate;
+	protected double avgConsumerDeposits; // average deposits of each consumer
 	protected double gdp; // gross domestic product -- the sum of the monetary values of all final goods produced by the economy
 	protected double gdpGrowthRate; //rate of growth of gdp. fluctuates uniformly between -3% and +10%
 	protected double currency[]; // currency held by each consumer and each bank. banks precede consumers in the array. currently, banks can't hold currency; rather, they hold deposits=bankDeposits[b]+bankLoansIn[b]+fedLoans[b]; but I have left the currency array like this in case our model ever include banks having some sort of currency 
@@ -30,6 +34,7 @@ public class BankingSim {
 	protected double deposits[][]; // first dimension is depositors (consumers), second is deposit holders (banks).
 	protected double fedLoans[]; // federal loans to each bank
 	protected boolean everFailed[]; // whether each bank and consumer has ever failed or not.  Banks precede consumers in the array.  Failure occurs for a bank when a consumer wants to withdraw his deposits from the bank, but the bank doesn't have enough reserves to satisfy that request.  Failure occurs for a consumer when the consumer desires to take a loan of x dollars from the banking system, but the banking system cannot satisfy him.
+	protected double totalAmountDefaulted;
 	
 	//convenience global variables
 	protected double consumerDeposits[]; // deposits held by consumer i
@@ -57,8 +62,12 @@ public class BankingSim {
 		numBanks = 5;
 		numConsumers = 1000;
 		initBase = 10000000;
-		avgConsumerDeposits = initBase/numConsumers*(.2+.2*(rng.nextDouble()-.5)); // savings rate is uniform random var between .1 and .3
+		avgConsumerDeposits = initBase/numConsumers*(fedInterestRate+bidAskRate-.1+rng.nextDouble()*.45); //savings rate is directly related to interest rate for consumers 
 		
+		fedInterestRate = .01+rng.nextDouble()*.05;
+		bidAskRate = .01+rng.nextDouble()*.01;		
+		prevFedInterestRate = .01+rng.nextDouble()*.05;
+		prevBidAskRate = .01+rng.nextDouble()*.01;	
 		rr= 0.01+(rng.nextDouble()-.5)*.01;
 		gdp = initBase;
 		gdpGrowthRate = (rng.nextDouble()*13-3)/100;
@@ -67,6 +76,7 @@ public class BankingSim {
 		loans = new double[numBanks][numBanks + numConsumers];
 		fedLoans = new double [numBanks];
 		everFailed = new boolean [numBanks+numConsumers];
+		totalAmountDefaulted = 0;
 		
 		consumerDeposits = new double[numConsumers];
 		consumerLoans = new double[numConsumers];
@@ -109,7 +119,7 @@ public class BankingSim {
 	private void run() {
 		System.out.println("SIMULATION CONSTANTS:");
 		System.out.println(numBanks+" Banks and "+numConsumers+" Consumers.  Initial rr: " + twoDecimalFormat.format(rr*100) + "%.");
-		System.out.println("Initial money base: $" + initBase + ".  Average deposits per consumer: $" + avgConsumerDeposits  + ".");
+		System.out.println("Initial money base: $" + initBase + ".");
 		System.out.println("Number of iterations: " + numIterations + ".");
 		System.out.println("SIMULATION START:");
 		for(int i = 0; i < numIterations; i++){
@@ -144,13 +154,18 @@ public class BankingSim {
 	private void printState(int i){
 		System.out.println("================================");
 		System.out.println("Iteration " + i + ":");
+		System.out.println("GDP Growth Rate: " + twoDecimalFormat.format(gdpGrowthRate*100) + "%");
+		System.out.println("GDP: " + twoDecimalFormat.format(gdp));
+		System.out.println("Savings rate: " + twoDecimalFormat.format(avgConsumerDeposits*numConsumers/gdp)  + ".");
+		System.out.println("Average deposits per consumer: $" + twoDecimalFormat.format(avgConsumerDeposits)  + ".");
+		System.out.println("Federal funds rate: " + twoDecimalFormat.format(prevFedInterestRate*100)  + "%.");
+		System.out.println("Bid/ask rate: " + twoDecimalFormat.format(prevBidAskRate*100)  + "%.");
+		System.out.println("Total amount ever defaulted by consumers: " + twoDecimalFormat.format(totalAmountDefaulted));
 		System.out.println("Reserve Ratio (rr -- assigned randomly by fed): " + twoDecimalFormat.format(rr*100) + "%");
 		System.out.println("Currency (C): $" + twoDecimalFormat.format(totalCurrency));
 		System.out.println("Deposits (D): $" + twoDecimalFormat.format(totalDeposits));
 		System.out.println("Required Reserves (R): $" +twoDecimalFormat.format( totalRequiredReserves));
 		System.out.println("Currency-Deposit Ratio (cr=C/D) " + twoDecimalFormat.format(cr));
-		System.out.println("GDP Growth Rate: " + twoDecimalFormat.format(gdpGrowthRate*100) + "%");
-		System.out.println("GDP: " + twoDecimalFormat.format(gdp));
 		System.out.println("Money Base (B=C+R): $" + twoDecimalFormat.format(moneyBase));
 		System.out.println("Money Supply (M=C+D): $" + twoDecimalFormat.format(moneySupply));
 		System.out.println("Money Supply Growth: " + twoDecimalFormat.format(moneySupplyGrowth*100) + "%");
